@@ -47,9 +47,6 @@ export default function ChartsSection({ languageStats, commitActivity, contribut
       return (
         <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-200">
           <p className="font-medium text-gray-900">{payload[0].name}</p>
-          <p className="text-sm text-gray-600">
-            {payload[0].value.toLocaleString()} bytes ({payload[0].payload.percentage}%)
-          </p>
         </div>
       );
     }
@@ -67,14 +64,14 @@ export default function ChartsSection({ languageStats, commitActivity, contribut
         
         {languageData.length > 0 ? (
           <>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={280}>
               <PieChart>
                 <Pie
                   data={languageData}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, percentage }) => `${name} ${percentage}%`}
+                  label={({ name }) => name}
                   outerRadius={100}
                   fill="#8884d8"
                   dataKey="value"
@@ -87,18 +84,18 @@ export default function ChartsSection({ languageStats, commitActivity, contribut
               </PieChart>
             </ResponsiveContainer>
             
-            <div className="mt-4 space-y-2">
-              {languageData.slice(0, 5).map((lang, index) => (
-                <div key={lang.name} className="flex items-center justify-between text-sm">
-                  <div className="flex items-center space-x-2">
-                    <div
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                    />
-                    <span className="text-gray-700">{lang.name}</span>
-                  </div>
-                  <span className="font-medium text-gray-900">{lang.percentage}%</span>
-                </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {languageData.map((lang, index) => (
+                <span
+                  key={lang.name}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
+                >
+                  <span
+                    className="w-2 h-2 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                  />
+                  {lang.name}
+                </span>
               ))}
             </div>
           </>

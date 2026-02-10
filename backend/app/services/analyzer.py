@@ -145,10 +145,10 @@ class AnalyzerService:
             strengths.append(Strength(
                 category="Quality",
                 title="Polyglot Developer",
-                description=f"Proficient in {language_stats.language_diversity} programming languages",
+                description="Proficient in multiple programming languages",
                 evidence=[
                     f"Primary language: {language_stats.primary_language or 'Not specified'}",
-                    f"Total languages: {language_stats.language_diversity}",
+                    "Works across a wide range of languages",
                     "Demonstrates adaptability and breadth of knowledge"
                 ],
                 impact="High"
