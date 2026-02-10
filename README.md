@@ -45,34 +45,134 @@ This tool helps developers understand how recruiters view their GitHub profiles 
          └─────────────────────┘
 ```
 
-## 📊 Scoring System
+## 📊 Scoring System & Calculations
 
-### Five Weighted Dimensions
+The final portfolio score (0–100) is a **weighted sum** of five independent component scores. Each component is scored 0–100 internally, then multiplied by its weight.
 
-1. **Activity & Consistency (25%)**
-   - Commit frequency and recent activity
-   - Contribution streaks and patterns
-   - Account maturity
+$$\text{Final Score} = \sum_{i=1}^{5} \frac{\text{Component}_i \times \text{Weight}_i}{100}$$
 
-2. **Documentation & Readability (20%)**
-   - README coverage and quality
-   - Repository descriptions
-   - Documentation features
+### Configurable Weights (default, must sum to 100)
 
-3. **Project Quality & Originality (25%)**
-   - Stars and community engagement
-   - Language diversity
-   - Original work vs tutorials
+| # | Dimension | Weight | What It Measures |
+|---|-----------|--------|------------------|
+| 1 | Activity & Consistency | **25%** | How regularly and sustainably you contribute |
+| 2 | Documentation & Readability | **20%** | README coverage, descriptions, wiki/pages |
+| 3 | Project Quality & Originality | **25%** | Stars, language diversity, freshness, originality |
+| 4 | Professionalism & Branding | **15%** | Profile completeness, bio, links, hireable flag |
+| 5 | Impact & Collaboration | **15%** | Followers, forks, community engagement |
 
-4. **Professionalism & Branding (15%)**
-   - Profile completeness
-   - Professional presentation
-   - Online presence
+Weights are configurable via environment variables (`WEIGHT_ACTIVITY`, `WEIGHT_DOCUMENTATION`, etc.).
 
-5. **Impact & Collaboration (15%)**
-   - Follower count and ratio
-   - Repository forks
-   - Collaboration indicators
+---
+
+### 1. Activity & Consistency (25 pts) — GraphQL Mode
+
+When GitHub GraphQL contribution data is available (default), the score uses **accurate calendar-year metrics** spanning the last 5 full years plus the current partial year.
+
+| Sub-score | Max Pts | Formula | Benchmark |
+|-----------|---------|---------|------------|
+| Sustained Weekly Effort | 30 | `min(per_week / 10 × 30, 30)` | 10+ contributions/week → full marks |
+| Stability & Consistency | 25 | streak (12) + current bonus (3) + low volatility (10) | 30-day streak → 12 pts; volatility 0.0 → 10 pts |
+| Recency & Momentum | 25 | last-12-month volume (10) + trend signal (15) | 400+ contributions/yr → 10 pts; strong growth → 15 pts |
+| Contribution Diversity | 20 | commits (8) + PRs (5) + reviews (4) + issues (3) | 200 commits, 20 PRs, 10 reviews, 10 issues → full |
+
+**Streak scoring:**
+- Longest streak: `min(longest_streak / 30 × 12, 12)`
+- Current streak bonus: `min(current_streak / 14 × 3, 3)`
+
+**Volatility bonus** (lower is better):
+- `max(10 × (1 − min(volatility_score, 1.0)), 0)`
+
+**Trend signal mapping:**
+
+| Signal | Points |
+|--------|--------|
+| `strong_growth` | 15 |
+| `growth` | 12 |
+| `stable` | 9 |
+| `decline` | 5 |
+| `strong_decline` | 2 |
+| `insufficient_data` | 7.5 |
+
+**Validation penalty:** If cross-verification detects unreliable years, a penalty of `min(unreliable_years × 3, 10)` is subtracted.
+
+#### REST Fallback Mode
+
+When GraphQL data is unavailable, a simpler calculation is used:
+
+| Sub-score | Max Pts | Formula |
+|-----------|---------|----------|
+| Commit frequency | 40 | `min(commits_per_month / 15 × 40, 40)` |
+| Recent activity | 30 | `min(commits_last_year / 100 × 30, 30)` |
+| Consistency | 20 | `min(longest_streak / 30 × 20, 20)` |
+| Account maturity | 10 | `min(account_age_years / 2 × 10, 10)` |
+
+---
+
+### 2. Documentation & Readability (20 pts)
+
+| Sub-score | Max Pts | Formula |
+|-----------|---------|----------|
+| README coverage | 50 | `(repos_with_readme / total_repos) × 50` |
+| Repo descriptions | 30 | `(repos_with_description / total_repos) × 30` |
+| Documentation features | 20 | wiki (7) + GitHub Pages (7) + Issues enabled (6), each ratio-weighted |
+
+---
+
+### 3. Project Quality & Originality (25 pts)
+
+| Sub-score | Max Pts | Formula | Benchmark |
+|-----------|---------|---------|------------|
+| Stars & engagement | 35 | `min(engagement / 50 × 35, 35)` | engagement = stars + (forks × 2); 50+ → full |
+| Language diversity | 25 | `min(unique_languages / 5 × 25, 25)` | 5+ languages → full marks |
+| Project freshness | 20 | `(repos_updated_last_6mo / total_repos) × 20` | — |
+| Originality | 20 | `(original_repos / total_repos) × 20` | Excludes repos with "tutorial", "practice", etc. in name AND < 100 KB |
+
+---
+
+### 4. Professionalism & Branding (15 pts)
+
+| Sub-score | Max Pts | Formula |
+|-----------|---------|----------|
+| Profile completeness | 40 | `(filled_fields / 5) × 40` — fields: name, bio, location, email, company |
+| Professional presentation | 30 | Meaningful bio > 20 chars (15) + hireable flag (10) + 5+ public repos (5) |
+| Online presence | 30 | Personal website (15) + Twitter/social (10) + company affiliation (5) |
+
+---
+
+### 5. Impact & Collaboration (15 pts)
+
+| Sub-score | Max Pts | Formula | Benchmark |
+|-----------|---------|---------|------------|
+| Followers | 40 | `min(followers / 50 × 40, 40)` | 50+ followers → full marks |
+| Repository forks | 30 | `min(total_forks / 20 × 30, 30)` | 20+ forks → full marks |
+| Collaboration indicators | 30 | Has forked repos (10) + forks > 5 (10) + follower ratio ≥ 0.5 (10) |
+
+---
+
+### Percentile Rank
+
+| Final Score | Rank |
+|-------------|------|
+| 90+ | Top 5% |
+| 80–89 | Top 15% |
+| 70–79 | Top 30% |
+| 60–69 | Top 50% |
+| < 60 | Below Average |
+
+---
+
+### Example Calculation
+
+```
+Activity & Consistency:     72 / 100 × 25 = 18.0
+Documentation:              85 / 100 × 20 = 17.0
+Project Quality:            60 / 100 × 25 = 15.0
+Professionalism:            90 / 100 × 15 = 13.5
+Impact & Collaboration:     45 / 100 × 15 =  6.75
+                                           ───────
+Final Score:                                70.25  →  Top 30%
+```
 
 ## 🚀 Quick Start
 
@@ -202,23 +302,6 @@ VITE_API_BASE_URL=http://localhost:8000
 4. **Review Results**: Explore your score, insights, and recommendations
 5. **Export/Share**: Download JSON or share results
 
-## 🎨 Screenshots
-
-### Dashboard View
-- Overall portfolio score with circular progress
-- Score breakdown across 5 dimensions
-- Language distribution and commit activity charts
-
-### Insights
-- Expandable strength cards with evidence
-- Weakness cards with actionable suggestions
-- Red flag detection with fix instructions
-
-### AI Feedback
-- Weekly improvement roadmap (30 days)
-- Personalized project suggestions
-- Honest recruiter perspective
-
 ## 🧪 Testing
 
 ### Backend
@@ -267,55 +350,7 @@ npm run build
 VITE_API_BASE_URL=https://your-backend-domain.com
 ```
 
-### Docker Deployment
 
-**Backend Dockerfile:**
-```dockerfile
-FROM python:3.11-slim
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-COPY . .
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-```
-
-**Frontend Dockerfile:**
-```dockerfile
-FROM node:18-alpine as build
-WORKDIR /app
-COPY package*.json ./
-RUN npm install
-COPY . .
-RUN npm run build
-
-FROM nginx:alpine
-COPY --from=build /app/dist /usr/share/nginx/html
-EXPOSE 80
-```
-
-## 🐛 Troubleshooting
-
-### Backend Issues
-
-**Problem**: GitHub API rate limit exceeded
-**Solution**: Add `GITHUB_TOKEN` to `.env` file
-
-**Problem**: AI feedback not generating
-**Solution**: Add `ANTHROPIC_API_KEY` to `.env` file
-
-**Problem**: User not found
-**Solution**: Verify username exists and profile is public
-
-### Frontend Issues
-
-**Problem**: Can't connect to backend
-**Solution**: Ensure backend is running on port 8000
-
-**Problem**: CORS errors
-**Solution**: Check `ALLOWED_ORIGINS` in backend `config.py`
-
-**Problem**: Charts not rendering
-**Solution**: Verify Recharts is installed: `npm install recharts`
 
 ## 🛠️ Tech Stack
 
@@ -334,37 +369,7 @@ EXPOSE 80
 - **Icons**: Lucide React 0.460
 - **HTTP**: Axios 1.7.7
 
-## 📝 API Documentation
 
-Interactive API documentation available at:
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
-
-### Main Endpoint
-
-**POST /api/analyze/{username}**
-
-Request:
-```bash
-curl -X POST "http://localhost:8000/api/analyze/octocat?include_ai_feedback=true"
-```
-
-Response:
-```json
-{
-  "username": "octocat",
-  "analyzed_at": "2026-02-10T12:00:00Z",
-  "score_breakdown": {
-    "final_score": 78.5,
-    "percentile_rank": "Top 15%",
-    ...
-  },
-  "strengths": [...],
-  "weaknesses": [...],
-  "red_flags": [...],
-  "ai_feedback": {...}
-}
-```
 
 ## 🤝 Contributing
 
@@ -381,19 +386,11 @@ Contributions are welcome! Please follow these guidelines:
 
 MIT License - see LICENSE file for details
 
-## 🙏 Acknowledgments
-
-- GitHub REST API for profile data
-- Anthropic Claude for AI-powered insights
-- React and FastAPI communities
-- All contributors and testers
-
-## 📧 Support
+## � Support
 
 For issues and questions:
 - Create an issue on GitHub
 - Check existing documentation
-- Review troubleshooting section
 
 ---
 
