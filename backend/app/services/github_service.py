@@ -1,7 +1,8 @@
 
+import asyncio
 import httpx
 from typing import List, Dict, Optional, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from app.core.config import settings
 from app.models.schemas import (
     GitHubUser,
@@ -9,6 +10,9 @@ from app.models.schemas import (
     CommitActivity,
     LanguageStats
 )
+
+# Semaphore to limit concurrent GitHub API requests
+_MAX_CONCURRENT_REQUESTS = 5
 
 
 class GitHubService:
@@ -24,6 +28,13 @@ class GitHubService:
         # Add authentication if token is provided
         if settings.GITHUB_TOKEN:
             self.headers["Authorization"] = f"Bearer {settings.GITHUB_TOKEN}"
+        
+        self._semaphore = asyncio.Semaphore(_MAX_CONCURRENT_REQUESTS)
+    
+    async def _get(self, client: httpx.AsyncClient, url: str, **kwargs) -> httpx.Response:
+        """Rate-limited GET request."""
+        async with self._semaphore:
+            return await client.get(url, headers=self.headers, timeout=10.0, **kwargs)
     
     async def fetch_user_profile(self, username: str) -> GitHubUser:
         """
@@ -39,11 +50,7 @@ class GitHubService:
             httpx.HTTPStatusError: If user not found or API error
         """
         async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{self.base_url}/users/{username}",
-                headers=self.headers,
-                timeout=10.0
-            )
+            response = await self._get(client, f"{self.base_url}/users/{username}")
             response.raise_for_status()
             data = response.json()
             return GitHubUser(**data)
@@ -64,16 +71,15 @@ class GitHubService:
         
         async with httpx.AsyncClient() as client:
             while len(repos) < settings.MAX_REPOS_TO_ANALYZE:
-                response = await client.get(
+                response = await self._get(
+                    client,
                     f"{self.base_url}/users/{username}/repos",
-                    headers=self.headers,
                     params={
                         "type": "owner",
                         "sort": "updated",
                         "per_page": per_page,
                         "page": page
-                    },
-                    timeout=10.0
+                    }
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -90,62 +96,75 @@ class GitHubService:
         
         return repos[:settings.MAX_REPOS_TO_ANALYZE]
     
-    async def fetch_repo_readme(self, username: str, repo_name: str) -> Optional[Dict[str, Any]]:
+    async def fetch_repo_readme(self, client: httpx.AsyncClient, username: str, repo_name: str) -> bool:
         """
         Check if repository has a README file.
         
         Args:
+            client: Shared httpx client
             username: GitHub username
             repo_name: Repository name
             
         Returns:
-            README metadata if exists, None otherwise
+            True if README exists, False otherwise
         """
-        async with httpx.AsyncClient() as client:
-            try:
-                response = await client.get(
-                    f"{self.base_url}/repos/{username}/{repo_name}/readme",
-                    headers=self.headers,
-                    timeout=10.0
-                )
-                if response.status_code == 200:
-                    return response.json()
-                return None
-            except httpx.HTTPError:
-                return None
+        try:
+            response = await self._get(
+                client,
+                f"{self.base_url}/repos/{username}/{repo_name}/readme"
+            )
+            return response.status_code == 200
+        except httpx.HTTPError:
+            return False
     
-    async def fetch_repo_languages(self, username: str, repo_name: str) -> Dict[str, int]:
+    async def fetch_repo_languages(self, client: httpx.AsyncClient, username: str, repo_name: str) -> Dict[str, int]:
         """
         Fetch language statistics for a repository.
         
         Args:
+            client: Shared httpx client
             username: GitHub username
             repo_name: Repository name
             
         Returns:
             Dictionary mapping language names to bytes of code
         """
-        async with httpx.AsyncClient() as client:
-            try:
-                response = await client.get(
-                    f"{self.base_url}/repos/{username}/{repo_name}/languages",
-                    headers=self.headers,
-                    timeout=10.0
-                )
-                response.raise_for_status()
+        try:
+            response = await self._get(
+                client,
+                f"{self.base_url}/repos/{username}/{repo_name}/languages"
+            )
+            if response.status_code == 200:
                 return response.json()
-            except httpx.HTTPError:
-                return {}
+            return {}
+        except httpx.HTTPError:
+            return {}
+    
+    async def _fetch_repo_commits(self, client: httpx.AsyncClient, username: str, repo_name: str) -> List[Dict]:
+        """Fetch commits for a single repo."""
+        try:
+            response = await self._get(
+                client,
+                f"{self.base_url}/repos/{username}/{repo_name}/commits",
+                params={"author": username, "per_page": 100}
+            )
+            if response.status_code == 200:
+                return response.json()
+            return []
+        except httpx.HTTPError:
+            return []
     
     async def fetch_commit_activity(
         self,
+        client: httpx.AsyncClient,
         username: str,
         repos: List[Repository]
     ) -> CommitActivity:
         """
-        Analyze commit activity across all repositories.
+        Analyze commit activity across repositories concurrently.
         
         Args:
+            client: Shared httpx client
             username: GitHub username
             repos: List of repositories to analyze
             
@@ -156,37 +175,30 @@ class GitHubService:
         recent_commits = 0
         commit_dates = []
         
-        one_year_ago = datetime.now() - timedelta(days=365)
+        one_year_ago = datetime.now(timezone.utc) - timedelta(days=365)
         
-        async with httpx.AsyncClient() as client:
-            for repo in repos[:20]:  # Limit to avoid rate limits
+        # Fetch commits concurrently for up to 15 repos
+        tasks = [
+            self._fetch_repo_commits(client, username, repo.name)
+            for repo in repos[:15]
+        ]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        for result in results:
+            if isinstance(result, Exception) or not isinstance(result, list):
+                continue
+            
+            total_commits += len(result)
+            for commit in result:
                 try:
-                    # Fetch commits for the repository
-                    response = await client.get(
-                        f"{self.base_url}/repos/{username}/{repo.name}/commits",
-                        headers=self.headers,
-                        params={
-                            "author": username,
-                            "per_page": 100
-                        },
-                        timeout=10.0
+                    commit_date_str = commit["commit"]["author"]["date"]
+                    commit_date = datetime.fromisoformat(
+                        commit_date_str.replace("Z", "+00:00")
                     )
-                    
-                    if response.status_code == 200:
-                        commits = response.json()
-                        total_commits += len(commits)
-                        
-                        for commit in commits:
-                            commit_date_str = commit["commit"]["author"]["date"]
-                            commit_date = datetime.fromisoformat(
-                                commit_date_str.replace("Z", "+00:00")
-                            )
-                            commit_dates.append(commit_date)
-                            
-                            if commit_date >= one_year_ago:
-                                recent_commits += 1
-                
-                except httpx.HTTPError:
+                    commit_dates.append(commit_date)
+                    if commit_date >= one_year_ago:
+                        recent_commits += 1
+                except (KeyError, ValueError):
                     continue
         
         # Calculate streaks and frequency
@@ -198,7 +210,7 @@ class GitHubService:
         # Calculate contribution years
         if commit_dates:
             first_commit = commit_dates[0]
-            contribution_years = (datetime.now() - first_commit).days // 365 + 1
+            contribution_years = (datetime.now(timezone.utc) - first_commit).days // 365 + 1
         else:
             contribution_years = 0
         
@@ -244,7 +256,7 @@ class GitHubService:
             return 0
         
         dates = sorted(set(date.date() for date in commit_dates), reverse=True)
-        today = datetime.now().date()
+        today = datetime.now(timezone.utc).date()
         
         # Check if most recent commit is today or yesterday
         if dates[0] not in [today, today - timedelta(days=1)]:
@@ -261,13 +273,15 @@ class GitHubService:
     
     async def aggregate_language_stats(
         self,
+        client: httpx.AsyncClient,
         username: str,
         repos: List[Repository]
     ) -> LanguageStats:
         """
-        Aggregate language statistics across all repositories.
+        Aggregate language statistics across repositories concurrently.
         
         Args:
+            client: Shared httpx client
             username: GitHub username
             repos: List of repositories
             
@@ -276,9 +290,17 @@ class GitHubService:
         """
         language_totals: Dict[str, int] = {}
         
-        for repo in repos:
-            languages = await self.fetch_repo_languages(username, repo.name)
-            for lang, bytes_count in languages.items():
+        # Fetch languages concurrently
+        tasks = [
+            self.fetch_repo_languages(client, username, repo.name)
+            for repo in repos
+        ]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        for result in results:
+            if isinstance(result, Exception) or not isinstance(result, dict):
+                continue
+            for lang, bytes_count in result.items():
                 language_totals[lang] = language_totals.get(lang, 0) + bytes_count
         
         # Determine primary language (most bytes)
@@ -291,3 +313,12 @@ class GitHubService:
             primary_language=primary_language,
             language_diversity=len(language_totals)
         )
+    
+    async def count_readmes(self, client: httpx.AsyncClient, username: str, repos: List[Repository]) -> int:
+        """Count how many repos have READMEs, concurrently."""
+        tasks = [
+            self.fetch_repo_readme(client, username, repo.name)
+            for repo in repos
+        ]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        return sum(1 for r in results if r is True)

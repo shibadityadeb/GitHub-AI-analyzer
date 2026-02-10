@@ -1,7 +1,8 @@
 
+import asyncio
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 import httpx
 
@@ -66,18 +67,14 @@ async def analyze_profile(
                 detail=f"User must have at least {settings.MIN_REPOS_FOR_ANALYSIS} public repository to analyze"
             )
         
-        # Check README presence for each repo
-        readme_count = 0
-        for repo in repos:
-            readme = await github_service.fetch_repo_readme(username, repo.name)
-            if readme:
-                readme_count += 1
-        
-        # Fetch commit activity
-        commit_activity = await github_service.fetch_commit_activity(username, repos)
-        
-        # Aggregate language statistics
-        language_stats = await github_service.aggregate_language_stats(username, repos)
+        # Fetch README counts, commit activity, and language stats concurrently
+        # using a shared HTTP client for connection pooling
+        async with httpx.AsyncClient() as client:
+            readme_count, commit_activity, language_stats = await asyncio.gather(
+                github_service.count_readmes(client, username, repos),
+                github_service.fetch_commit_activity(client, username, repos),
+                github_service.aggregate_language_stats(client, username, repos),
+            )
         
         # ===================================================================
         # STEP 2: Calculate Scores
@@ -153,7 +150,7 @@ async def analyze_profile(
         
         # GitHub tenure in days
         created_date = datetime.fromisoformat(profile.created_at.replace("Z", "+00:00"))
-        github_tenure_days = (datetime.now() - created_date).days
+        github_tenure_days = (datetime.now(timezone.utc) - created_date).days
         
         # ===================================================================
         # STEP 6: Build Response
@@ -161,7 +158,7 @@ async def analyze_profile(
         
         analysis_result = AnalysisResult(
             username=username,
-            analyzed_at=datetime.now(),
+            analyzed_at=datetime.now(timezone.utc),
             analysis_version="1.0.0",
             profile=profile,
             total_repositories=len(repos),
@@ -216,7 +213,7 @@ async def health_check():
     """
     return {
         "status": "healthy",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "github_api": {
             "configured": bool(settings.GITHUB_TOKEN),
             "base_url": settings.GITHUB_API_BASE_URL

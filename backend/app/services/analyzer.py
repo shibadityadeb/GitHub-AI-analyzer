@@ -6,7 +6,7 @@ recruiter-relevant signals in a GitHub portfolio.
 """
 
 from typing import List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from app.models.schemas import (
     GitHubUser,
@@ -155,7 +155,7 @@ class AnalyzerService:
             ))
         
         # Recent project updates
-        six_months_ago = datetime.now() - timedelta(days=180)
+        six_months_ago = datetime.now(timezone.utc) - timedelta(days=180)
         recent_updates = sum(
             1 for repo in repos
             if datetime.fromisoformat(repo.updated_at.replace("Z", "+00:00")) >= six_months_ago
@@ -367,7 +367,7 @@ class AnalyzerService:
             ))
         
         # Old projects
-        six_months_ago = datetime.now() - timedelta(days=180)
+        six_months_ago = datetime.now(timezone.utc) - timedelta(days=180)
         recent_updates = sum(
             1 for repo in repos
             if datetime.fromisoformat(repo.updated_at.replace("Z", "+00:00")) >= six_months_ago
@@ -475,7 +475,7 @@ class AnalyzerService:
         # ===================================================================
         
         # Account completely inactive
-        one_year_ago = datetime.now() - timedelta(days=365)
+        one_year_ago = datetime.now(timezone.utc) - timedelta(days=365)
         last_updated = max(
             (datetime.fromisoformat(repo.updated_at.replace("Z", "+00:00")) for repo in repos),
             default=datetime.min
@@ -553,7 +553,7 @@ class AnalyzerService:
         
         # Account very new with many repos
         created_date = datetime.fromisoformat(profile.created_at.replace("Z", "+00:00"))
-        account_age_days = (datetime.now() - created_date).days
+        account_age_days = (datetime.now(timezone.utc) - created_date).days
         
         if account_age_days < 90 and len(repos) > 20:
             red_flags.append(RedFlag(
@@ -569,7 +569,7 @@ class AnalyzerService:
         # ===================================================================
         
         # No activity in last 3 months
-        three_months_ago = datetime.now() - timedelta(days=90)
+        three_months_ago = datetime.now(timezone.utc) - timedelta(days=90)
         if commit_activity.recent_commits > 0 and last_updated < three_months_ago:
             red_flags.append(RedFlag(
                 flag_type="Minor",

@@ -1,7 +1,6 @@
 
-
 from typing import List, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from app.models.schemas import (
     GitHubUser,
     Repository,
@@ -149,7 +148,7 @@ class ScoringEngine:
         created_date = datetime.fromisoformat(
             profile.created_at.replace("Z", "+00:00")
         )
-        account_age_years = (datetime.now() - created_date).days / 365
+        account_age_years = (datetime.now(timezone.utc) - created_date).days / 365
         maturity_score = min(account_age_years / 2 * 10, 10)  # 2 years = full points
         score += maturity_score
         details["account_maturity"] = {
@@ -291,7 +290,7 @@ class ScoringEngine:
         
         # 3. Project freshness (20 points)
         # Check how many repos updated in last 6 months
-        six_months_ago = datetime.now() - timedelta(days=180)
+        six_months_ago = datetime.now(timezone.utc) - timedelta(days=180)
         recent_updates = sum(
             1 for repo in repos
             if datetime.fromisoformat(
