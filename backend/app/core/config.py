@@ -13,15 +13,13 @@ class Settings(BaseSettings):
     
     # CORS Settings
     ALLOWED_ORIGINS: List[str] = [
-        "http://localhost:5173",
         "http://localhost:3000",
-        "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000",
     ]
     
     # External API Keys
     GITHUB_TOKEN: str = ""  # Optional: increases rate limit
-    OPENAI_API_KEY: str = ""  # Optional: enables AI feedback
-    OPENROUTER_API_KEY: str = ""  # Alternative to OpenAI
+    ANTHROPIC_API_KEY: str = ""  # Optional: enables AI feedback
     
     # GitHub API Configuration
     GITHUB_API_BASE_URL: str = "https://api.github.com"
@@ -39,10 +37,10 @@ class Settings(BaseSettings):
     MAX_REPOS_TO_ANALYZE: int = 50
     RECENT_ACTIVITY_DAYS: int = 365
     
-    # AI Configuration
-    AI_MODEL: str = "gpt-4o-mini"
-    AI_TEMPERATURE: float = 0.7
-    AI_MAX_TOKENS: int = 1500
+    # AI Configuration (Anthropic Claude)
+    ANTHROPIC_MODEL: str = "claude-3-5-sonnet-20241022"
+    ANTHROPIC_TEMPERATURE: float = 0.7
+    ANTHROPIC_MAX_TOKENS: int = 4096
     
     class Config:
         env_file = ".env"

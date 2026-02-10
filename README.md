@@ -22,7 +22,7 @@ This tool helps developers understand how recruiters view their GitHub profiles 
 
 ```
 ┌─────────────────────────────────────────────────┐
-│         React + Vite Frontend (Port 5173)       │
+│         React + Vite Frontend (Port 3000)        │
 │  • Modern UI with Tailwind CSS                  │
 │  • Interactive charts with Recharts             │
 │  • Responsive, mobile-friendly design           │
@@ -41,7 +41,7 @@ This tool helps developers understand how recruiters view their GitHub profiles 
          ┌─────────────────────┐
          │   External APIs     │
          │  • GitHub REST API  │
-         │  • OpenAI (optional)│
+         │  • Anthropic Claude │
          └─────────────────────┘
 ```
 
@@ -80,7 +80,7 @@ This tool helps developers understand how recruiters view their GitHub profiles 
 
 - **Backend**: Python 3.10+, pip
 - **Frontend**: Node.js 18+, npm
-- **Optional**: GitHub token (for higher rate limits), OpenAI API key (for AI feedback)
+- **Optional**: GitHub token (for higher rate limits), Anthropic API key (for AI feedback)
 
 ### Installation
 
@@ -124,7 +124,7 @@ npm run dev
 ```
 
 **Access the application:**
-- Frontend: http://localhost:5173
+- Frontend: http://localhost:3000
 - Backend API: http://localhost:8000
 - API Docs: http://localhost:8000/docs
 
@@ -177,10 +177,8 @@ GIthub analyzer/
 # Optional: Increases GitHub API rate limit
 GITHUB_TOKEN=ghp_your_token_here
 
-# Optional: Enables AI feedback
-OPENAI_API_KEY=sk-your-key-here
-# OR
-OPENROUTER_API_KEY=your-key-here
+# Optional: Enables AI feedback using Anthropic Claude
+ANTHROPIC_API_KEY=sk-ant-your-key-here
 
 # Scoring weights (should sum to 100)
 WEIGHT_ACTIVITY=25.0
@@ -303,7 +301,7 @@ EXPOSE 80
 **Solution**: Add `GITHUB_TOKEN` to `.env` file
 
 **Problem**: AI feedback not generating
-**Solution**: Add `OPENAI_API_KEY` or `OPENROUTER_API_KEY`
+**Solution**: Add `ANTHROPIC_API_KEY` to `.env` file
 
 **Problem**: User not found
 **Solution**: Verify username exists and profile is public
@@ -325,7 +323,7 @@ EXPOSE 80
 - **Framework**: FastAPI 0.115.0
 - **HTTP Client**: httpx 0.27.2
 - **Validation**: Pydantic 2.9.2
-- **AI**: OpenAI 1.54.3 (optional)
+- **AI**: Anthropic Claude 0.39.0 (optional)
 - **Server**: Uvicorn 0.32.0
 
 ### Frontend
@@ -386,7 +384,7 @@ MIT License - see LICENSE file for details
 ## 🙏 Acknowledgments
 
 - GitHub REST API for profile data
-- OpenAI for AI-powered insights
+- Anthropic Claude for AI-powered insights
 - React and FastAPI communities
 - All contributors and testers
 

@@ -59,9 +59,9 @@ npm install
 npm run dev
 ```
 
-**Frontend will start at:** http://localhost:5173
+**Frontend will start at:** http://localhost:3000
 
-✅ Verify: Open http://localhost:5173 in your browser
+✅ Verify: Open http://localhost:3000 in your browser
 
 ---
 
@@ -138,10 +138,8 @@ npm install
 
 2. **Enable AI Feedback** (optional)
    ```bash
-   # In backend/.env - Choose one:
-   OPENAI_API_KEY=sk-your-key-here
-   # OR
-   OPENROUTER_API_KEY=your-key-here
+   # In backend/.env
+   ANTHROPIC_API_KEY=sk-ant-your-key-here
    ```
 
 3. **Customize Scoring Weights**

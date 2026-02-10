@@ -42,7 +42,7 @@ async def health_check():
     return {
         "status": "healthy",
         "github_api": "configured" if settings.GITHUB_TOKEN else "not configured",
-        "ai_service": "configured" if settings.OPENAI_API_KEY else "not configured"
+        "ai_service": "configured" if settings.ANTHROPIC_API_KEY else "not configured"
     }
 
 

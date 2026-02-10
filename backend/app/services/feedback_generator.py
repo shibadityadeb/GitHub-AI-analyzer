@@ -1,12 +1,12 @@
 """
-AI Feedback Generator using OpenAI or OpenRouter.
+AI Feedback Generator using Anthropic Claude API.
 
 Generates recruiter-style feedback and actionable improvement roadmap.
 """
 
 import json
 from typing import List, Optional
-import httpx
+from anthropic import AsyncAnthropic, APIError, APITimeoutError
 
 from app.models.schemas import (
     GitHubUser,
@@ -23,14 +23,16 @@ from app.core.config import settings
 
 
 class FeedbackGenerator:
-    """Service for generating AI-powered feedback and recommendations."""
+    """Service for generating AI-powered feedback and recommendations using Anthropic Claude."""
     
     def __init__(self):
-        self.openai_api_key = settings.OPENAI_API_KEY
-        self.openrouter_api_key = settings.OPENROUTER_API_KEY
-        self.model = settings.AI_MODEL
-        self.temperature = settings.AI_TEMPERATURE
-        self.max_tokens = settings.AI_MAX_TOKENS
+        self.api_key = settings.ANTHROPIC_API_KEY
+        self.model = settings.ANTHROPIC_MODEL
+        self.temperature = settings.ANTHROPIC_TEMPERATURE
+        self.max_tokens = settings.ANTHROPIC_MAX_TOKENS
+        
+        # Initialize Anthropic client if API key is available
+        self.client = AsyncAnthropic(api_key=self.api_key) if self.api_key else None
     
     async def generate_feedback(
         self,
@@ -56,29 +58,29 @@ class FeedbackGenerator:
             AIFeedback with summary, roadmap, and project suggestions
         """
         
-        # If no API key configured, return None
-        if not self.openai_api_key and not self.openrouter_api_key:
+        # If no API key configured or client not initialized, return None
+        if not self.client:
             return None
         
         try:
-            # Build the prompt for the AI
+            # Build the prompt for Claude
             prompt = self._build_prompt(
                 profile, repos, score_breakdown, strengths, weaknesses, red_flags
             )
             
-            # Call the appropriate AI service
-            if self.openai_api_key:
-                response_text = await self._call_openai(prompt)
-            else:
-                response_text = await self._call_openrouter(prompt)
+            # Call Anthropic Claude API
+            response_text = await self._call_anthropic(prompt)
             
             # Parse the response
             ai_feedback = self._parse_response(response_text)
             
             return ai_feedback
             
-        except Exception as e:
+        except (APIError, APITimeoutError) as e:
             # If AI generation fails, return None rather than breaking the entire response
+            print(f"Anthropic API error: {str(e)}")
+            return None
+        except Exception as e:
             print(f"AI feedback generation failed: {str(e)}")
             return None
     
@@ -194,67 +196,53 @@ Generate the JSON report:"""
         
         return "\n".join(formatted)
     
-    async def _call_openai(self, prompt: str) -> str:
-        """Call OpenAI API."""
-        url = "https://api.openai.com/v1/chat/completions"
-        headers = {
-            "Authorization": f"Bearer {self.openai_api_key}",
-            "Content-Type": "application/json"
-        }
+    async def _call_anthropic(self, prompt: str) -> str:
+        """
+        Call Anthropic Claude API with structured output enforcement.
         
-        payload = {
-            "model": self.model,
-            "messages": [
-                {
-                    "role": "system",
-                    "content": "You are a senior technical recruiter specializing in entry-level software engineering hiring. You provide honest, actionable feedback."
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            "temperature": self.temperature,
-            "max_tokens": self.max_tokens
-        }
+        Args:
+            prompt: The complete prompt for Claude
+            
+        Returns:
+            Response text from Claude
+            
+        Raises:
+            APIError: If Anthropic API returns an error
+            APITimeoutError: If the request times out
+        """
+        system_message = """You are a senior technical recruiter specializing in entry-level software engineering hiring. 
+You provide honest, actionable feedback on GitHub portfolios. You always respond with valid JSON objects only, 
+no markdown formatting or additional text."""
         
-        async with httpx.AsyncClient() as client:
-            response = await client.post(url, headers=headers, json=payload, timeout=30.0)
-            response.raise_for_status()
-            data = response.json()
-            return data["choices"][0]["message"]["content"]
-    
-    async def _call_openrouter(self, prompt: str) -> str:
-        """Call OpenRouter API."""
-        url = "https://openrouter.ai/api/v1/chat/completions"
-        headers = {
-            "Authorization": f"Bearer {self.openrouter_api_key}",
-            "Content-Type": "application/json",
-            "HTTP-Referer": "https://github.com/yourusername/github-analyzer",  # Update with your repo
-            "X-Title": "GitHub Portfolio Analyzer"
-        }
-        
-        payload = {
-            "model": self.model,
-            "messages": [
-                {
-                    "role": "system",
-                    "content": "You are a senior technical recruiter specializing in entry-level software engineering hiring. You provide honest, actionable feedback."
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            "temperature": self.temperature,
-            "max_tokens": self.max_tokens
-        }
-        
-        async with httpx.AsyncClient() as client:
-            response = await client.post(url, headers=headers, json=payload, timeout=30.0)
-            response.raise_for_status()
-            data = response.json()
-            return data["choices"][0]["message"]["content"]
+        # Call Claude API with retry logic
+        max_retries = 2
+        for attempt in range(max_retries + 1):
+            try:
+                message = await self.client.messages.create(
+                    model=self.model,
+                    max_tokens=self.max_tokens,
+                    temperature=self.temperature,
+                    system=system_message,
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ]
+                )
+                
+                # Extract text from response
+                response_text = message.content[0].text
+                return response_text
+                
+            except APITimeoutError as e:
+                if attempt < max_retries:
+                    print(f"Anthropic API timeout, retry {attempt + 1}/{max_retries}")
+                    continue
+                raise
+            except APIError as e:
+                # Don't retry on API errors (e.g., invalid API key, rate limit)
+                raise
     
     def _parse_response(self, response_text: str) -> AIFeedback:
         """Parse AI response into AIFeedback model."""

@@ -124,7 +124,7 @@ async def analyze_profile(
         # ===================================================================
         
         ai_feedback = None
-        if include_ai_feedback and (settings.OPENAI_API_KEY or settings.OPENROUTER_API_KEY):
+        if include_ai_feedback and settings.ANTHROPIC_API_KEY:
             ai_feedback = await feedback_generator.generate_feedback(
                 profile=profile,
                 repos=repos,
@@ -222,7 +222,6 @@ async def health_check():
             "base_url": settings.GITHUB_API_BASE_URL
         },
         "ai_service": {
-            "openai_configured": bool(settings.OPENAI_API_KEY),
-            "openrouter_configured": bool(settings.OPENROUTER_API_KEY)
+            "anthropic_configured": bool(settings.ANTHROPIC_API_KEY)
         }
     }

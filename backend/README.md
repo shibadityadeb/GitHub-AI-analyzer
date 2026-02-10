@@ -105,14 +105,11 @@ GITHUB_TOKEN=ghp_your_token_here
 ```
 Get token at: https://github.com/settings/tokens (needs `public_repo` scope)
 
-**AI Feedback** - Enables AI-powered insights
+**AI Feedback** - Enables AI-powered insights using Anthropic Claude
 ```bash
-# Option 1: OpenAI
-OPENAI_API_KEY=sk-your-key-here
-
-# Option 2: OpenRouter (alternative)
-OPENROUTER_API_KEY=your-key-here
+ANTHROPIC_API_KEY=sk-ant-your-key-here
 ```
+Get key at: https://console.anthropic.com/settings/keys
 
 ## 📡 API Endpoints
 
@@ -165,8 +162,7 @@ Health check endpoint.
     "base_url": "https://api.github.com"
   },
   "ai_service": {
-    "openai_configured": false,
-    "openrouter_configured": false
+    "anthropic_configured": false
   }
 }
 ```
@@ -208,7 +204,7 @@ ALLOWED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
 
 # Use production-grade API keys
 GITHUB_TOKEN=ghp_production_token
-OPENAI_API_KEY=sk_production_key
+ANTHROPIC_API_KEY=sk-ant-production-key
 ```
 
 ### Run with Gunicorn
@@ -284,7 +280,7 @@ RECENT_ACTIVITY_DAYS=365    # Days to consider for recent activity
 - Reduces rate from 60 to 5000 requests/hour
 
 ### AI Feedback Not Generating
-- Check `OPENAI_API_KEY` or `OPENROUTER_API_KEY` is set
+- Check `ANTHROPIC_API_KEY` is set
 - Verify API key is valid
 - Check AI service status
 
@@ -297,7 +293,7 @@ RECENT_ACTIVITY_DAYS=365    # Days to consider for recent activity
 - **Framework**: FastAPI 0.115.0
 - **HTTP Client**: httpx 0.27.2
 - **Validation**: Pydantic 2.9.2
-- **AI**: OpenAI 1.54.3 (optional)
+- **AI**: Anthropic Claude 0.39.0 (optional)
 - **Server**: Uvicorn 0.32.0
 
 ## 🤝 Contributing

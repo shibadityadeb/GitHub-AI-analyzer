@@ -17,8 +17,7 @@ python-dotenv==1.0.1
 # starlette (comes with FastAPI)
 
 # AI/LLM Integration (optional)
-openai==1.54.3
-# Note: OpenRouter uses OpenAI-compatible API
+anthropic==0.39.0
 
 # Development Dependencies
 pytest==8.3.3

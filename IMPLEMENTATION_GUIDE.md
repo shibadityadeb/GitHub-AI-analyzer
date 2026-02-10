@@ -57,7 +57,7 @@ A production-ready full-stack application that analyzes GitHub profiles from a r
 │  │  FeedbackGenerator (AI)                              │   │
 │  │  • generate_feedback()                               │   │
 │  │  • _build_prompt()                                   │   │
-│  │  • _call_openai() / _call_openrouter()              │   │
+│  │  • _call_anthropic()                                 │   │
 │  └──────────────────────────────────────────────────────┘   │
 └────────────────────┬─────────────────────────────────────────┘
                      │
@@ -73,8 +73,7 @@ A production-ready full-stack application that analyzes GitHub profiles from a r
 ┌────────────────────▼─────────────────────────────────────────┐
 │              EXTERNAL SERVICES                               │
 │  • GitHub REST API (https://api.github.com)                 │
-│  • OpenAI API (optional)                                    │
-│  • OpenRouter API (optional)                                │
+│  • Anthropic Claude API (optional)                          │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -300,7 +299,7 @@ App
 - [x] GitHub API service with error handling
 - [x] Multi-dimensional scoring engine
 - [x] Insight detection service (strengths/weaknesses/red flags)
-- [x] AI feedback generator (OpenAI/OpenRouter)
+- [x] AI feedback generator (Anthropic Claude)
 - [x] Complete Pydantic schemas
 - [x] FastAPI routes with CORS
 - [x] Health check endpoint
@@ -556,7 +555,7 @@ This project demonstrates:
 - [React Documentation](https://react.dev)
 - [Tailwind CSS](https://tailwindcss.com)
 - [Recharts Guide](https://recharts.org)
-- [OpenAI API](https://platform.openai.com/docs)
+- [Anthropic Claude API](https://docs.anthropic.com)
 
 ---
 

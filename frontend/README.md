@@ -70,7 +70,7 @@ echo "VITE_API_BASE_URL=http://localhost:8000" > .env
 npm run dev
 ```
 
-Frontend will start at `http://localhost:5173`
+Frontend will start at `http://localhost:3000`
 
 ## 📁 Project Structure
 
@@ -174,7 +174,7 @@ Development proxy is configured in `vite.config.js`:
 
 ```javascript
 server: {
-  port: 5173,
+  port: 3000,
   proxy: {
     '/api': {
       target: 'http://localhost:8000',
