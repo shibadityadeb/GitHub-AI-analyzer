@@ -18,8 +18,8 @@ export default function ErrorDisplay({ error, onRetry }) {
               <p className="font-medium mb-2">Common issues:</p>
               <ul className="list-disc list-inside space-y-1 text-gray-600">
                 <li>Username doesn't exist or is private</li>
-                <li>Backend server is not running (should be at http://localhost:8000)</li>
-                <li>GitHub API rate limit exceeded (add GITHUB_TOKEN to backend .env)</li>
+                <li>Backend server is not responding — please try again in a moment</li>
+                <li>GitHub API rate limit exceeded</li>
                 <li>User has no public repositories</li>
               </ul>
             </div>
