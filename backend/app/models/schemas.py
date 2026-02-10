@@ -74,6 +74,91 @@ class LanguageStats(BaseModel):
 
 
 # ============================================================================
+# Contribution Data Models (GraphQL-sourced)
+# ============================================================================
+
+class YearlyMetrics(BaseModel):
+    """Normalized contribution metrics for a single calendar year."""
+    year: int
+    total: int = 0
+    per_month: float = 0.0
+    per_week: float = 0.0
+    active_days: int = 0
+    active_day_rate: float = Field(
+        0.0, description="Average contributions per active day"
+    )
+    is_partial: bool = Field(
+        False, description="True when the year has not ended or has incomplete data"
+    )
+    is_reliable: bool = Field(
+        True, description="False when cross-verification detected a mismatch > 2%"
+    )
+    calendar_sum: int = Field(
+        0, description="Sum of contributionCalendar day counts for cross-check"
+    )
+    reported_commits: int = Field(
+        0, description="totalCommitContributions reported by GraphQL"
+    )
+
+
+class ActivityOverview(BaseModel):
+    """High-level activity signals derived from multi-year contribution data."""
+    moving_average_3yr: float = Field(
+        0.0, description="3-year moving average of commits/week"
+    )
+    momentum_index: float = Field(
+        0.0,
+        description=(
+            "Ratio of latest-year per_week to 3-year average. "
+            ">1 = accelerating, <1 = decelerating"
+        ),
+    )
+    volatility_score: float = Field(
+        0.0,
+        description="Coefficient of variation of per_week across years (0-1 scale, lower = more stable)",
+    )
+    trend_signal: str = Field(
+        "stable",
+        description="One of: strong_growth, growth, stable, decline, strong_decline",
+    )
+    trend_details: str = ""
+
+
+class ValidationResult(BaseModel):
+    """Output of the consistency validator."""
+    is_valid: bool = True
+    anomalies: List[str] = Field(default_factory=list)
+    incomplete_years: List[int] = Field(default_factory=list)
+    unreliable_years: List[int] = Field(default_factory=list)
+
+
+class ContributionData(BaseModel):
+    """Accurate contribution data sourced from GitHub GraphQL API v4.
+
+    All date boundaries use strict calendar-year UTC.
+    All rate metrics are time-normalized (per_week, per_month, per_active_day).
+    Cross-verification is performed between totalCommitContributions and
+    contributionCalendar day sums for every year.
+    """
+    yearly_metrics: List[YearlyMetrics] = Field(default_factory=list)
+    total_contributions: int = 0
+    current_year_contributions: int = 0
+    last_12_months_contributions: int = 0
+    weekly_average: float = 0.0
+    longest_streak: int = 0
+    current_streak: int = 0
+    active_days: int = 0
+    contribution_breakdown: Dict[str, int] = Field(
+        default_factory=dict,
+        description="Breakdown by type: commits, pull_requests, reviews, issues, repositories",
+    )
+    growth_rate: float = Field(0.0, description="Year-over-year growth percentage (per_week basis)")
+    is_trending_up: bool = False
+    activity_overview: Optional[ActivityOverview] = None
+    validation: Optional[ValidationResult] = None
+
+
+# ============================================================================
 # Scoring Models
 # ============================================================================
 
@@ -173,6 +258,7 @@ class AnalysisResult(BaseModel):
     analyzed_repositories: int
     language_stats: LanguageStats
     commit_activity: CommitActivity
+    contribution_data: Optional[ContributionData] = None
     
     # Scoring
     score_breakdown: ScoreBreakdown

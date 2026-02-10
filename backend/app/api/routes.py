@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from typing import Optional
 import httpx
 
-from app.models.schemas import AnalysisResult, AnalysisRequest, ErrorResponse
+from app.models.schemas import AnalysisResult, AnalysisRequest, ErrorResponse, ContributionData
 from app.services.github_service import GitHubService
 from app.services.scoring_engine import ScoringEngine
 from app.services.analyzer import AnalyzerService
@@ -51,9 +51,6 @@ async def analyze_profile(
         analyzer_service = AnalyzerService()
         feedback_generator = FeedbackGenerator()
         
-        # ===================================================================
-        # STEP 1: Fetch GitHub Data
-        # ===================================================================
         
         # Fetch user profile
         profile = await github_service.fetch_user_profile(username)
@@ -67,30 +64,34 @@ async def analyze_profile(
                 detail=f"User must have at least {settings.MIN_REPOS_FOR_ANALYSIS} public repository to analyze"
             )
         
-        # Fetch README counts, commit activity, and language stats concurrently
-        # using a shared HTTP client for connection pooling
+        # Fetch README counts, commit activity, language stats, and
+        # GraphQL contributions concurrently using a shared HTTP client
         async with httpx.AsyncClient() as client:
-            readme_count, commit_activity, language_stats = await asyncio.gather(
+            readme_count, commit_activity, language_stats, raw_contributions = await asyncio.gather(
                 github_service.count_readmes(client, username, repos),
                 github_service.fetch_commit_activity(client, username, repos),
                 github_service.aggregate_language_stats(client, username, repos),
+                github_service.fetch_contribution_data(client, username),
             )
         
-        # ===================================================================
-        # STEP 2: Calculate Scores
-        # ===================================================================
+        # Parse GraphQL contribution data (may be None if no token)
+        contribution_data = github_service.parse_contributions(raw_contributions)
+        
+        # When GraphQL data is available, override commit_activity for accuracy
+        if contribution_data is not None:
+            commit_activity = github_service.build_commit_activity_from_contributions(
+                contribution_data
+            )
         
         score_breakdown = await scoring_engine.calculate_score(
             profile=profile,
             repos=repos,
             commit_activity=commit_activity,
             language_stats=language_stats,
-            readme_count=readme_count
+            readme_count=readme_count,
+            contribution_data=contribution_data
         )
         
-        # ===================================================================
-        # STEP 3: Detect Insights (Strengths, Weaknesses, Red Flags)
-        # ===================================================================
         
         strengths = analyzer_service.detect_strengths(
             profile=profile,
@@ -116,9 +117,7 @@ async def analyze_profile(
             readme_count=readme_count
         )
         
-        # ===================================================================
-        # STEP 4: Generate AI Feedback (Optional)
-        # ===================================================================
+       
         
         ai_feedback = None
         if include_ai_feedback and settings.ANTHROPIC_API_KEY:
@@ -131,9 +130,7 @@ async def analyze_profile(
                 red_flags=red_flags
             )
         
-        # ===================================================================
-        # STEP 5: Calculate Additional Metrics
-        # ===================================================================
+       
         
         # Profile completeness percentage
         profile_fields = [
@@ -151,10 +148,7 @@ async def analyze_profile(
         # GitHub tenure in days
         created_date = datetime.fromisoformat(profile.created_at.replace("Z", "+00:00"))
         github_tenure_days = (datetime.now(timezone.utc) - created_date).days
-        
-        # ===================================================================
-        # STEP 6: Build Response
-        # ===================================================================
+     
         
         analysis_result = AnalysisResult(
             username=username,
@@ -165,6 +159,7 @@ async def analyze_profile(
             analyzed_repositories=min(len(repos), settings.MAX_REPOS_TO_ANALYZE),
             language_stats=language_stats,
             commit_activity=commit_activity,
+            contribution_data=contribution_data,
             score_breakdown=score_breakdown,
             strengths=strengths,
             weaknesses=weaknesses,

@@ -70,6 +70,7 @@ export default function Dashboard({ data, onReset }) {
       <ChartsSection
         languageStats={data.language_stats}
         commitActivity={data.commit_activity}
+        contributionData={data.contribution_data}
         scoreBreakdown={data.score_breakdown}
       />
 

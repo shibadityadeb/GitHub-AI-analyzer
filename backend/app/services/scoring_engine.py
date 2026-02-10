@@ -1,10 +1,14 @@
 
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta, timezone
 from app.models.schemas import (
     GitHubUser,
     Repository,
     CommitActivity,
+    ContributionData,
+    YearlyMetrics,
+    ActivityOverview,
+    ValidationResult,
     LanguageStats,
     ScoreComponent,
     ScoreBreakdown
@@ -39,7 +43,8 @@ class ScoringEngine:
         repos: List[Repository],
         commit_activity: CommitActivity,
         language_stats: LanguageStats,
-        readme_count: int
+        readme_count: int,
+        contribution_data: Optional[ContributionData] = None
     ) -> ScoreBreakdown:
         """
         Calculate comprehensive portfolio score.
@@ -50,6 +55,7 @@ class ScoringEngine:
             commit_activity: Commit statistics
             language_stats: Language usage statistics
             readme_count: Number of repos with README
+            contribution_data: Optional GraphQL-sourced contribution data
             
         Returns:
             ScoreBreakdown with all components
@@ -57,7 +63,8 @@ class ScoringEngine:
         
         # Calculate each component
         activity_score = self._calculate_activity_score(
-            commit_activity, profile, repos
+            commit_activity, profile, repos,
+            contribution_data=contribution_data
         )
         
         documentation_score = self._calculate_documentation_score(
@@ -102,11 +109,167 @@ class ScoringEngine:
         self,
         commit_activity: CommitActivity,
         profile: GitHubUser,
-        repos: List[Repository]
+        repos: List[Repository],
+        contribution_data: Optional[ContributionData] = None
     ) -> ScoreComponent:
         """
         Calculate Activity & Consistency Score (0-100).
         
+        When GraphQL *contribution_data* is available the score uses accurate
+        contribution metrics.  Otherwise falls back to REST-based commit data.
+        """
+        if contribution_data is not None:
+            return self._activity_score_from_contributions(
+                contribution_data, profile
+            )
+        return self._activity_score_from_rest(commit_activity, profile)
+
+    # ------------------------------------------------------------------
+    # GraphQL-based activity scoring
+    # ------------------------------------------------------------------
+
+    def _activity_score_from_contributions(
+        self,
+        cd: ContributionData,
+        profile: GitHubUser,
+    ) -> ScoreComponent:
+        """
+        Activity score powered by GitHub GraphQL contribution data.
+
+        Revised breakdown (Task 10) – prioritises stability, recency,
+        and growth over raw volume:
+
+          - Sustained weekly effort (rate-normalised)       – 30 pts
+          - Stability & consistency (streaks + volatility)  – 25 pts
+          - Recency & momentum (trend signal + last 12 mo)  – 25 pts
+          - Contribution diversity (PRs, reviews …)         – 20 pts
+        """
+        score = 0.0
+        details: Dict[str, Any] = {}
+
+        # Helper – full-year metrics only
+        full_years = [m for m in cd.yearly_metrics if not m.is_partial]
+        latest_full = full_years[-1] if full_years else None
+
+        # ----- 1. Sustained weekly effort (30 pts) -----
+        # Uses per_week of the most-recent full year.
+        # 10+ contributions/week → full marks
+        if latest_full:
+            effort_score = min(latest_full.per_week / 10 * 30, 30)
+        else:
+            # Fall back to weekly_average from last 52 weeks
+            effort_score = min(cd.weekly_average / 10 * 30, 30)
+        score += effort_score
+        details["sustained_effort"] = {
+            "per_week_latest_full_year": latest_full.per_week if latest_full else None,
+            "weekly_average_52w": cd.weekly_average,
+            "score": round(effort_score, 1),
+        }
+
+        # ----- 2. Stability & consistency (25 pts) -----
+        # Streak component (15 pts max)
+        streak_pts = min(cd.longest_streak / 30 * 12, 12)
+        current_bonus = min(cd.current_streak / 14 * 3, 3)
+        # Low volatility bonus (10 pts) – from activity_overview
+        volatility_pts = 0.0
+        if cd.activity_overview and cd.activity_overview.volatility_score is not None:
+            vol = cd.activity_overview.volatility_score
+            # Lower volatility → higher score  (0.0 = perfectly stable → 10 pts)
+            volatility_pts = max(10 * (1 - min(vol, 1.0)), 0)
+        stability_score = streak_pts + current_bonus + volatility_pts
+        score += stability_score
+        details["stability_consistency"] = {
+            "longest_streak_days": cd.longest_streak,
+            "current_streak_days": cd.current_streak,
+            "volatility": cd.activity_overview.volatility_score if cd.activity_overview else None,
+            "active_days": cd.active_days,
+            "score": round(stability_score, 1),
+        }
+
+        # ----- 3. Recency & momentum (25 pts) -----
+        # Last-12-month volume (10 pts)
+        recency_vol = min(cd.last_12_months_contributions / 400 * 10, 10)
+
+        # Trend signal from activity_overview (15 pts)
+        trend_pts = 7.5  # default "stable"
+        if cd.activity_overview:
+            sig = cd.activity_overview.trend_signal
+            trend_map = {
+                "strong_growth": 15.0,
+                "growth": 12.0,
+                "stable": 9.0,
+                "decline": 5.0,
+                "strong_decline": 2.0,
+                "insufficient_data": 7.5,
+            }
+            trend_pts = trend_map.get(sig, 7.5)
+
+        momentum_score = recency_vol + trend_pts
+        score += momentum_score
+        details["recency_momentum"] = {
+            "last_12_months": cd.last_12_months_contributions,
+            "growth_rate": cd.growth_rate,
+            "trend_signal": cd.activity_overview.trend_signal if cd.activity_overview else None,
+            "momentum_index": cd.activity_overview.momentum_index if cd.activity_overview else None,
+            "score": round(momentum_score, 1),
+        }
+
+        # ----- 4. Contribution diversity (20 pts) -----
+        bd = cd.contribution_breakdown
+        div_score = 0.0
+        div_score += min(bd.get("commits", 0) / 200 * 8, 8)
+        div_score += min(bd.get("pull_requests", 0) / 20 * 5, 5)
+        div_score += min(bd.get("reviews", 0) / 10 * 4, 4)
+        div_score += min(bd.get("issues", 0) / 10 * 3, 3)
+        score += div_score
+        details["contribution_diversity"] = {
+            "breakdown": bd,
+            "score": round(div_score, 1),
+        }
+
+        # ----- Validation penalty -----
+        if cd.validation and not cd.validation.is_valid:
+            n_unreliable = len(cd.validation.unreliable_years)
+            penalty = min(n_unreliable * 3, 10)
+            score = max(score - penalty, 0)
+            details["validation_penalty"] = {
+                "unreliable_years": cd.validation.unreliable_years,
+                "anomalies": cd.validation.anomalies[:3],
+                "penalty": penalty,
+            }
+
+        # ----- Yearly metrics summary for details -----
+        details["yearly_metrics_summary"] = [
+            {
+                "year": m.year,
+                "total": m.total,
+                "per_week": m.per_week,
+                "per_month": m.per_month,
+                "is_partial": m.is_partial,
+            }
+            for m in cd.yearly_metrics
+        ]
+
+        weighted_score = (min(score, 100) * self.weights["activity"]) / 100
+        return ScoreComponent(
+            score=round(min(score, 100), 1),
+            weight=self.weights["activity"],
+            weighted_score=round(weighted_score, 1),
+            details=details,
+        )
+
+    # ------------------------------------------------------------------
+    # REST-based activity scoring (fallback)
+    # ------------------------------------------------------------------
+
+    def _activity_score_from_rest(
+        self,
+        commit_activity: CommitActivity,
+        profile: GitHubUser,
+    ) -> ScoreComponent:
+        """
+        Fallback Activity & Consistency Score using REST commit data.
+
         Factors:
         - Commit frequency (40%)
         - Recent activity (30%)
