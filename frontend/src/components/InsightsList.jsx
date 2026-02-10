@@ -1,4 +1,4 @@
-import { CheckCircle, AlertTriangle, XCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { CheckCircle, AlertTriangle, XCircle, ChevronDown, ChevronUp, Lightbulb, Wrench, Briefcase } from 'lucide-react';
 import { useState } from 'react';
 
 export default function InsightsList({ strengths, weaknesses, redFlags }) {
@@ -67,23 +67,29 @@ export default function InsightsList({ strengths, weaknesses, redFlags }) {
                       )}
                       
                       {item.suggestion && (
-                        <div className="bg-blue-50 p-3 rounded-lg">
-                          <p className="font-medium text-blue-900 mb-1">💡 Suggestion:</p>
-                          <p className="text-blue-800">{item.suggestion}</p>
+                        <div className="bg-slate-50 border border-slate-200 p-3 rounded-lg">
+                          <p className="font-medium text-slate-900 mb-1 text-xs flex items-center">
+                            <Lightbulb className="w-3.5 h-3.5 mr-1.5" /> Suggestion
+                          </p>
+                          <p className="text-slate-700 text-xs leading-relaxed">{item.suggestion}</p>
                         </div>
                       )}
                       
                       {item.how_to_fix && (
-                        <div className="bg-green-50 p-3 rounded-lg">
-                          <p className="font-medium text-green-900 mb-1">🔧 How to Fix:</p>
-                          <p className="text-green-800">{item.how_to_fix}</p>
+                        <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-lg">
+                          <p className="font-medium text-emerald-900 mb-1 text-xs flex items-center">
+                            <Wrench className="w-3.5 h-3.5 mr-1.5" /> How to Fix
+                          </p>
+                          <p className="text-emerald-800 text-xs leading-relaxed">{item.how_to_fix}</p>
                         </div>
                       )}
                       
                       {item.recruiter_perspective && (
-                        <div className="bg-purple-50 p-3 rounded-lg">
-                          <p className="font-medium text-purple-900 mb-1">👔 Recruiter Perspective:</p>
-                          <p className="text-purple-800">{item.recruiter_perspective}</p>
+                        <div className="bg-indigo-50 border border-indigo-200 p-3 rounded-lg">
+                          <p className="font-medium text-indigo-900 mb-1 text-xs flex items-center">
+                            <Briefcase className="w-3.5 h-3.5 mr-1.5" /> Recruiter Perspective
+                          </p>
+                          <p className="text-indigo-800 text-xs leading-relaxed">{item.recruiter_perspective}</p>
                         </div>
                       )}
                     </div>

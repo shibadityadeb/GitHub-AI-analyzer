@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { BarChart3, Target, Rocket } from 'lucide-react';
 import SearchBar from './components/SearchBar';
 import Dashboard from './components/Dashboard';
 import LoadingState from './components/LoadingState';
@@ -56,21 +57,27 @@ function App() {
             {/* Features Section */}
             <div className="mt-16 grid md:grid-cols-3 gap-6">
               <div className="card text-center">
-                <div className="text-4xl mb-3">📊</div>
+                <div className="flex justify-center mb-3">
+                  <BarChart3 className="w-10 h-10 text-blue-600" />
+                </div>
                 <h3 className="font-semibold text-lg mb-2">Portfolio Score</h3>
                 <p className="text-gray-600 text-sm">
                   Get a comprehensive 0-100 score based on 5 key metrics
                 </p>
               </div>
               <div className="card text-center">
-                <div className="text-4xl mb-3">🎯</div>
+                <div className="flex justify-center mb-3">
+                  <Target className="w-10 h-10 text-blue-600" />
+                </div>
                 <h3 className="font-semibold text-lg mb-2">Recruiter Insights</h3>
                 <p className="text-gray-600 text-sm">
                   Discover strengths, weaknesses, and red flags
                 </p>
               </div>
               <div className="card text-center">
-                <div className="text-4xl mb-3">🚀</div>
+                <div className="flex justify-center mb-3">
+                  <Rocket className="w-10 h-10 text-blue-600" />
+                </div>
                 <h3 className="font-semibold text-lg mb-2">Action Plan</h3>
                 <p className="text-gray-600 text-sm">
                   Get a 30-day roadmap to improve your profile

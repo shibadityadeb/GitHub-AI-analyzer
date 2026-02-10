@@ -1,4 +1,4 @@
-import { Sparkles, Lightbulb, Calendar, Code2, Target } from 'lucide-react';
+import { Sparkles, Lightbulb, Calendar, Code2, Target, Briefcase } from 'lucide-react';
 import { useState } from 'react';
 
 export default function AIFeedbackSection({ feedback }) {
@@ -168,14 +168,17 @@ export default function AIFeedbackSection({ feedback }) {
       </div>
 
       {/* Recruiter Perspective */}
-      <div className="card bg-gradient-to-br from-gray-50 to-blue-50 border-gray-300">
+      <div className="card bg-gray-50 border-gray-300">
         <div className="mb-4">
-          <h3 className="card-header">💼 Recruiter's Honest Perspective</h3>
-          <p className="text-sm text-gray-600">Frank feedback from a hiring manager's viewpoint</p>
+          <div className="flex items-center space-x-2.5 mb-2">
+            <Briefcase className="w-5 h-5 text-slate-700" />
+            <h3 className="card-header mb-0">Recruiter's Honest Perspective</h3>
+          </div>
+          <p className="text-xs text-gray-600">Frank feedback from a hiring manager's viewpoint</p>
         </div>
         
-        <div className="bg-white p-6 rounded-lg border-l-4 border-blue-600">
-          <p className="text-gray-800 leading-relaxed whitespace-pre-line">
+        <div className="bg-white p-5 rounded-lg border-l-2 border-slate-600">
+          <p className="text-gray-800 text-sm leading-relaxed whitespace-pre-line">
             {feedback.recruiter_perspective}
           </p>
         </div>
