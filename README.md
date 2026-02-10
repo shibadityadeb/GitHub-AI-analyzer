@@ -1,10 +1,14 @@
 # 🎯 GitHub Portfolio Analyzer & Recruiter Scorecard
 
+> **AI-powered GitHub portfolio analyzer that provides recruiter-perspective scoring, insights, and personalized recommendations for developers**
+
 A production-ready web application that analyzes GitHub profiles from a recruiter's perspective, providing objective scores, actionable insights, and AI-powered recommendations for students and early-career developers.
 
 ![GitHub Analyzer](https://img.shields.io/badge/Status-Production%20Ready-success)
 ![Tech Stack](https://img.shields.io/badge/Stack-React%20%2B%20FastAPI-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
+![Python](https://img.shields.io/badge/Python-3.10+-blue)
+![Node](https://img.shields.io/badge/Node-18+-green)
 
 ## 🌟 Overview
 

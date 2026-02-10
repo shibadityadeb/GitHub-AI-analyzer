@@ -1,0 +1,28 @@
+{
+  "name": "github-ai-analyzer",
+  "version": "1.0.0",
+  "description": "AI-powered GitHub portfolio analyzer that provides recruiter-perspective scoring, insights, and personalized recommendations for developers",
+  "keywords": [
+    "github",
+    "portfolio",
+    "analyzer",
+    "recruiter",
+    "career",
+    "ai",
+    "fastapi",
+    "react",
+    "developer-tools",
+    "code-analysis"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shibadityadeb/GitHub-AI-analyzer"
+  },
+  "author": "shibadityadeb",
+  "license": "MIT",
+  "homepage": "https://github.com/shibadityadeb/GitHub-AI-analyzer#readme",
+  "bugs": {
+    "url": "https://github.com/shibadityadeb/GitHub-AI-analyzer/issues"
+  },
+  "private": false
+}
