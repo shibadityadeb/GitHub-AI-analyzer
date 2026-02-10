@@ -1,5 +1,5 @@
 
-from typing import List
+from typing import List, Optional
 from pydantic_settings import BaseSettings
 from functools import lru_cache
 
@@ -11,12 +11,21 @@ class Settings(BaseSettings):
     API_V1_PREFIX: str = "/api"
     PROJECT_NAME: str = "GitHub Portfolio Analyzer"
     
-    # CORS Settings
+    # CORS Settings — hardcoded origins always included
+    FRONTEND_URL: str = "https://git-hub-ai-analyzer.vercel.app"
     ALLOWED_ORIGINS: List[str] = [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-        "https://git-hub-ai-analyzer.vercel.app",
     ]
+
+    @property
+    def cors_origins(self) -> List[str]:
+        """Merge ALLOWED_ORIGINS + FRONTEND_URL so the Vercel domain
+        is always permitted regardless of env var overrides."""
+        origins = list(self.ALLOWED_ORIGINS)
+        if self.FRONTEND_URL and self.FRONTEND_URL not in origins:
+            origins.append(self.FRONTEND_URL)
+        return origins
     
     # External API Keys
     GITHUB_TOKEN: str = ""  # Optional: increases rate limit
